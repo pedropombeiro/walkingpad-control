@@ -14,7 +14,7 @@ from bleak.exc import BleakError
 COMMAND_CHARACTERISTIC = "0000FE02-0000-1000-8000-00805F9B34FB"
 
 parser = argparse.ArgumentParser(description='A utility to control the Kingsmith Walkingpad A1 Pro')
-parser.add_argument("-a", "--address", help="Bluetooth address of the Walkingpad (e.g. 9F905A19-4F80-49A6-B1D5-3F79B6A5C76F for macOS or 57:4C:4E:2D:1A:3A otherwise)", type=ascii, required=True)
+parser.add_argument("-a", "--address", help="Bluetooth address of the Walkingpad (e.g. 9F905A19-4F80-49A6-B1D5-3F79B6A5C76F for macOS or 57:4C:4E:2D:1A:3A otherwise)", type=str, required=True)
 parser.add_argument("-d", "--debug", help="Enable debug output", required=False, action="store_true")
 
 subparsers = parser.add_subparsers(help='Commands')
