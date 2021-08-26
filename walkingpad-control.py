@@ -40,48 +40,47 @@ if p.debug:
     log.addHandler(h)
 
 async def run(ble_address: str):
+    client = BleakClient(ble_address)
+
+    async def set_speed(s):
+        await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytearray([0xf7, 0xa2, 0x01, s, s + 0xa3, 0xfd]))
+
+    async def set_init_speed(s):
+        await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytearray([0xf7, 0xa6, 0x04, 0x00, 0x00, 0x00, s, s + 0xaa, 0xfd]))
+
     log.info("Connecting to %s..." % ble_address)
-    device = await BleakScanner.find_device_by_address(ble_address, timeout=10.0)
-    if not device:
-        raise BleakError(f"A device with address {ble_address} could not be found.")
+    await client.connect()
 
-    async with BleakClient(ble_address) as client:
-        async def set_speed(s):
-            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytearray([0xf7, 0xa2, 0x01, s, s + 0xa3, 0xfd]))
+    log.debug(f"Connected: {client.is_connected}")
 
-        async def set_init_speed(s):
-            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytearray([0xf7, 0xa6, 0x04, 0x00, 0x00, 0x00, s, s + 0xaa, 0xfd]))
+    if hasattr(p, 'initial_speed'):
+        log.info("Setting initial speed to %f km/h..." % (p.initial_speed / 10.0))
+        await set_init_speed(p.initial_speed)
+        await asyncio.sleep(0.1)
 
-        log.debug(f"Connected: {client.is_connected}")
+    if hasattr(p, 'speed') or (hasattr(p, 'start_speed') and p.start_speed > 0):
+        if (hasattr(p, 'start_speed') and p.start_speed > 0):
+            speed = p.start_speed
+        else:
+            speed = p.speed
+        log.info("Setting speed to %f km/h..." % (speed / 10.0))
+        await set_speed(speed)
+        await asyncio.sleep(0.1)
 
-        if hasattr(p, 'initial_speed'):
-            log.info("Setting initial speed to %f km/h..." % (p.initial_speed / 10.0))
-            await set_init_speed(p.initial_speed)
-            await asyncio.sleep(0.1)
+    if hasattr(p, 'mode'):
+        if p.mode == 'sleep':
+            log.info("Setting walkingpad to sleep...")
+            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20202a6fd"))
+        elif p.mode == 'manual':
+            log.info("Setting walkingpad mode to manual mode...")
+            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20201a5fd"))
+        elif p.mode == 'auto':
+            log.info("Setting walkingpad mode to automatic mode...")
+            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20200a4fd"))
 
-        if hasattr(p, 'speed') or (hasattr(p, 'start_speed') and p.start_speed > 0):
-            if (hasattr(p, 'start_speed') and p.start_speed > 0):
-                speed = p.start_speed
-            else:
-                speed = p.speed
-            log.info("Setting speed to %f km/h..." % (speed / 10.0))
-            await set_speed(speed)
-            await asyncio.sleep(0.1)
-
-        if hasattr(p, 'mode'):
-            if p.mode == 'sleep':
-                log.info("Setting walkingpad to sleep...")
-                await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20202a6fd"))
-            elif p.mode == 'manual':
-                log.info("Setting walkingpad mode to manual mode...")
-                await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20201a5fd"))
-            elif p.mode == 'auto':
-                log.info("Setting walkingpad mode to automatic mode...")
-                await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20200a4fd"))
-
-        if hasattr(p, 'start_speed'):
-            log.info("Starting walkingpad...")
-            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20401a7fd"))
+    if hasattr(p, 'start_speed'):
+        log.info("Starting walkingpad in 3 seconds...")
+        await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20401a7fd"))
 
 class Unbuffered(object):
    def __init__(self, stream):
