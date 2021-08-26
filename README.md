@@ -19,7 +19,7 @@ A multi-platform Python script to control the Kingsmith Walkingpad A1 Pro throug
     pip install -r requirements.txt
     ```
 
-3. **MacOS**: Ensure that the program invoking the script has permissions to access Bluetooth in `System Preferences/Privacy/Bluetooth`.
+3. **MacOS Big Sur and later**: Ensure that the program invoking the script has permissions to access Bluetooth in `System Preferences/Privacy/Bluetooth`.
 
 ### Finding device ID
 
