@@ -25,6 +25,9 @@ parser_set = subparsers.add_parser('set', help='Set device values')
 parser_set.add_argument("--speed", help="Set the Walkingpad speed (e.g. 20 for 2 km/h)", default=argparse.SUPPRESS, type=int)
 parser_set.add_argument("--initial-speed", help="Set the Walkingpad initial speed (e.g. 20 for 2 km/h)", default=argparse.SUPPRESS, type=int)
 
+parser_start = subparsers.add_parser('toggle-start', help='Start/stop the Walkingpad')
+parser_start.add_argument("--start-speed", help="Start the Walkingpad at specified speed (e.g. 20 for 2 km/h)", default=0, type=int)
+
 p = parser.parse_args()
 
 log = logging.getLogger(__name__)
@@ -52,24 +55,33 @@ async def run(ble_address: str):
         log.debug(f"Connected: {client.is_connected}")
 
         if hasattr(p, 'initial_speed'):
-            log.info("Setting initial speed to %d..." % p.initial_speed)
+            log.info("Setting initial speed to %f km/h..." % (p.initial_speed / 10.0))
             await set_init_speed(p.initial_speed)
             await asyncio.sleep(0.1)
 
-        if hasattr(p, 'speed'):
-            log.info("Setting speed to %d..." % p.speed)
-            await set_speed(p.speed)
+        if hasattr(p, 'speed') or (hasattr(p, 'start_speed') and p.start_speed > 0):
+            if (hasattr(p, 'start_speed') and p.start_speed > 0):
+                speed = p.start_speed
+            else:
+                speed = p.speed
+            log.info("Setting speed to %f km/h..." % (speed / 10.0))
+            await set_speed(speed)
             await asyncio.sleep(0.1)
 
-        if p.mode == 'sleep':
-            log.info("Setting walkingpad to sleep...")
-            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20202a6fd"))
-        elif p.mode == 'manual':
-            log.info("Setting walkingpad mode to manual mode...")
-            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20201a5fd"))
-        elif p.mode == 'auto':
-            log.info("Setting walkingpad mode to automatic mode...")
-            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20200a4fd"))
+        if hasattr(p, 'mode'):
+            if p.mode == 'sleep':
+                log.info("Setting walkingpad to sleep...")
+                await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20202a6fd"))
+            elif p.mode == 'manual':
+                log.info("Setting walkingpad mode to manual mode...")
+                await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20201a5fd"))
+            elif p.mode == 'auto':
+                log.info("Setting walkingpad mode to automatic mode...")
+                await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20200a4fd"))
+
+        if hasattr(p, 'start_speed'):
+            log.info("Starting walkingpad...")
+            await client.write_gatt_char(COMMAND_CHARACTERISTIC, bytes.fromhex("f7a20401a7fd"))
 
 class Unbuffered(object):
    def __init__(self, stream):
@@ -83,7 +95,9 @@ class Unbuffered(object):
    def __getattr__(self, attr):
        return getattr(self.stream, attr)
 
-sys.stdout = Unbuffered(sys.stdout)
+if __name__ == "__main__":
+    sys.stdout = Unbuffered(sys.stdout)
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(run(p.address))
+    loop = asyncio.get_event_loop()
+    loop.set_debug(p.debug)
+    loop.run_until_complete(run(p.address))
